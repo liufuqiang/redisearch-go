@@ -33,15 +33,21 @@ func (a *Autocompleter) Delete() error {
 }
 
 // AddTerms pushes new term suggestions to the index
-func (a *Autocompleter) AddTerms(terms ...Suggestion) error {
+func (a *Autocompleter) AddTerms(withPayload bool, terms ...Suggestion) error {
 
 	conn := a.pool.Get()
 	defer conn.Close()
 
 	i := 0
 	for _, term := range terms {
-		if err := conn.Send("FT.SUGADD", a.name, term.Term, term.Score); err != nil {
-			return err
+		if withPayload {
+			if err := conn.Send("FT.SUGADD", a.name, term.Term, term.Score, "PAYLOAD", term.Payload); err != nil {
+				return err
+			}
+		} else {
+			if err := conn.Send("FT.SUGADD", a.name, term.Term, term.Score); err != nil {
+				return err
+			}
 		}
 		i++
 	}
@@ -60,13 +66,16 @@ func (a *Autocompleter) AddTerms(terms ...Suggestion) error {
 // Suggest gets completion suggestions from the Autocompleter dictionary to the given prefix.
 // If fuzzy is set, we also complete for prefixes that are in 1 Levenshten distance from the
 // given prefix
-func (a *Autocompleter) Suggest(prefix string, num int, fuzzy bool) ([]Suggestion, error) {
+func (a *Autocompleter) Suggest(prefix string, num int, fuzzy bool, payload bool) ([]Suggestion, error) {
 	conn := a.pool.Get()
 	defer conn.Close()
 
 	args := redis.Args{a.name, prefix, "MAX", num, "WITHSCORES"}
 	if fuzzy {
 		args = append(args, "FUZZY")
+	}
+	if payload {
+		args = append(args, "WITHPAYLOADS")
 	}
 	vals, err := redis.Strings(conn.Do("FT.SUGGET", args...))
 	if err != nil {
