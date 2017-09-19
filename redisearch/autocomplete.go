@@ -74,23 +74,29 @@ func (a *Autocompleter) Suggest(prefix string, num int, fuzzy bool, payload bool
 	if fuzzy {
 		args = append(args, "FUZZY")
 	}
+	div := 2
 	if payload {
 		args = append(args, "WITHPAYLOADS")
+		div = 3
 	}
 	vals, err := redis.Strings(conn.Do("FT.SUGGET", args...))
 	if err != nil {
 		return nil, err
 	}
 
-	ret := make([]Suggestion, 0, len(vals)/2)
-	for i := 0; i < len(vals); i += 2 {
+	ret := make([]Suggestion, 0, len(vals)/div)
+	for i := 0; i < len(vals); i += div {
 
 		score, err := strconv.ParseFloat(vals[i+1], 64)
 		if err != nil {
 			continue
 		}
-		ret = append(ret, Suggestion{Term: vals[i], Score: score})
 
+		if payload {
+			ret = append(ret, Suggestion{Term: vals[i], Score: score, Payload: vals[i+2]})
+		} else {
+			ret = append(ret, Suggestion{Term: vals[i], Score: score})
+		}
 	}
 
 	return ret, nil
