@@ -13,10 +13,10 @@ type Autocompleter struct {
 }
 
 // NewAutocompleter creates a new Autocompleter with the given host and key name
-func NewAutocompleter(addr, name string) *Autocompleter {
+func NewAutocompleter(addr, password, name string) *Autocompleter {
 	return &Autocompleter{
 		pool: redis.NewPool(func() (redis.Conn, error) {
-			return redis.Dial("tcp", addr)
+			return redis.Dial("tcp", addr, redis.DialPassword(password))
 		}, maxConns),
 		name: name,
 	}
